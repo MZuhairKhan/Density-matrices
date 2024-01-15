@@ -1,3 +1,9 @@
+# Additional files for my own use
+src/project_structure.py
+
+# VSCode specific
+.vscode
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
