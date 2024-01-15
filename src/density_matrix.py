@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 import numpy as np
+import scipy
 
 
 class DensityMatrix:
@@ -19,7 +20,7 @@ class DensityMatrix:
                         it is not an array of complex numbers.
         """
         try:
-            array = np.asarray(data, dtype=complex)
+            array: nd.ndarray = np.asarray(data, dtype=complex)
         except ValueError:
             raise ValueError(
                 "Input must be convertible to a numpy array of complex numbers."
@@ -159,12 +160,11 @@ class DensityMatrix:
         """
         return np.isclose(self.purity(), 1)
 
-    @staticmethod
-    def _is_power_of_two(n: int) -> bool:
+    def _is_power_of_two(self, n: int) -> bool:
         """
         Determines if a given number is a power of two.
 
-        Args:
+        Parameters:
             n (int): The number to check.
 
         Returns:
@@ -179,7 +179,7 @@ class DensityMatrix:
         Returns:
             str: A string representation of the DensityMatrix object.
         """
-        sep = "  "
+        sep: str = "  "
         rows = [
             sep.join("{0.real:.1f}+{0.imag:.1f}j".format(element) for element in row)
             for row in self.matrix()
@@ -205,7 +205,9 @@ class DensityMatrix:
         """
         return self._matrix
 
-    def partial_trace(self, subsystems_to_trace_out) -> DensityMatrix:
+    def partial_trace(
+        self, subsystems_to_trace_out: Union[int, Iterable]
+    ) -> DensityMatrix:
         """
         Calculates the partial trace of the density matrix with respect to the given
         subsystems. The subsystems are either given as an integer or as an iterable
@@ -222,29 +224,96 @@ class DensityMatrix:
             subsystems_to_trace_out = [subsystems_to_trace_out]
 
         try:
-            subsystems_to_trace_out = np.asarray(subsystems_to_trace_out, dtype=int)
+            subsystems_to_trace_out: nd.ndarray[int] = np.asarray(
+                subsystems_to_trace_out, dtype=int
+            )
         except ValueError:
             raise ValueError(
                 "The subsystems to trace out must be an integer or an iterable."
             )
 
-        density_matrix = self.matrix()
+        density_matrix: np.ndarray[complex] = self.matrix()
 
         for subsystem_index in subsystems_to_trace_out:
-            dimensions = self._calculate_square_matrix_dimension(density_matrix)
+            dimensions: int = self._calculate_square_matrix_dimension(density_matrix)
             subsystem_index = subsystem_index - 1
             if dimensions <= subsystem_index or subsystem_index < 0:
-                raise ValueError("The subsystem index is out of bounds.")
+                raise ValueError(
+                    f"The subsystem index {subsystem_index} is out of bounds."
+                )
 
-            new_shape = [2] * (2 * dimensions)
-            matrix_reshaped = density_matrix.reshape(new_shape)
+            new_shape: List[int] = [2] * (2 * dimensions)
+            matrix_reshaped: np.ndarray = density_matrix.reshape(new_shape)
 
-            axis_to_sum = (subsystem_index, subsystem_index + dimensions)
-            partial_matrix = np.trace(
+            axis_to_sum: Tuple = (subsystem_index, subsystem_index + dimensions)
+            partial_matrix: np.ndarray = np.trace(
                 matrix_reshaped, axis1=axis_to_sum[0], axis2=axis_to_sum[1]
             )
 
-            final_shape = [2] * (2 * dimensions - 2)
-            density_matrix = partial_matrix.reshape(final_shape)
+            final_shape: List[int] = [2] * (2 * dimensions - 2)
+            density_matrix: np.ndarray = partial_matrix.reshape(final_shape)
 
         return DensityMatrix(density_matrix)
+
+    def eigensystem(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate the eigenvalues and eigenvectors of the matrix.
+
+        Returns:
+            Tuple: A tuple containing the eigenvalues and eigenvectors of the matrix.
+                   The eigenvalues are stored in a 1-D array, and the eigenvectors are
+                   stored in a 2-D array where each column represents an eigenvector.
+        """
+        return np.linalg.eigh(self.matrix())
+
+    def evolve(self, operator: nd.ndarray) -> "DensityMatrix":
+        """
+        Evolves the density matrix by applying an operator.
+
+        Parameters:
+            operator (ndarray): The operator to apply to the density matrix.
+
+        Returns:
+            DensityMatrix: The evolved density matrix.
+        """
+        return DensityMatrix(operator @ self.matrix() @ operator.conj().T)
+
+    def measurement_probability(self, operator: nd.ndarray) -> float:
+        """
+        Calculate the measurement probability of a given operator.
+
+        Parameters:
+            operator (numpy.ndarray): The operator for which to calculate the
+                                      measurement probability.
+
+        Returns:
+            float: The measurement probability of the operator.
+        """
+        return np.trace(self.matrix() @ operator)
+
+    def fidelity(self, other) -> float:
+        """
+        Calculates the fidelity between two quantum states.
+
+        Parameters:
+            other (QuantumState): The other quantum state to compare against.
+
+        Returns:
+            float: The fidelity value between the two states.
+        """
+        sqrtm_self: np.ndarray = scipy.linalg.sqrtm(self.matrix())
+        product_matrix: np.ndarray = sqrtm_self @ other._matrix @ sqrtm_self
+        return np.trace(scipy.linalg.sqrtm(product_matrix)) ** 2
+
+    def von_neumann_entropy(self) -> float:
+        """
+        Calculates the von Neumann entropy of a quantum system.
+
+        Returns:
+            float: The von Neumann entropy of the system.
+
+        Raises:
+            ValueError: If the eigenvalues of the system matrix are not positive.
+        """
+        eigenvalues: np.ndarray = np.linalg.eigvalsh(self.matrix())
+        return -np.sum(eigenvalues * np.log2(eigenvalues, where=eigenvalues > 0))
