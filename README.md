@@ -3,14 +3,14 @@ This repository supplies all the essential tools to work with density matrices.
 
 # Folder structure
 
-Density-matrices/
-    .gitignore
-    LICENSE
-    README.md
-    src/
-        density_matrix.py
-        project_structure.py
-        __init__.py
-    tests/
-        test_density_matrix.py
-        __init__.py
+Density-matrices/  
+&emsp;.gitignore  
+&emsp;LICENSE  
+&emsp;README.md  
+&emsp;src/  
+&emsp;&emsp;density_matrix.py  
+&emsp;&emsp;project_structure.py  
+&emsp;&emsp;__init__.py  
+&emsp;tests/  
+&emsp;&emsp;test_density_matrix.py  
+&emsp;&emsp;__init__.py
